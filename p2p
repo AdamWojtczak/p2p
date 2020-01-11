@@ -1,12 +1,109 @@
 import sys
+import socket
+import threading
+import time
+from random import randint
+
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
+
+
+class Server:
+    connections = []
+    peers = []
+
+    def __init__(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(('0.0.0.0', 10000))
+        sock.listen(1)
+
+        while True:
+            print("Odpalony serwer czeka na akceptacje")
+            c, a = sock.accept()
+            cThread = threading.Thread(target=self.handler, args=(c, a))
+            cThread.daemon = True
+            cThread.start()
+            self.connections.append(c)
+            self.peers.append(a[0])
+            print(str(a[0]) + ':' + str(a[1]), "connected")
+            self.sendPeers()
+
+    def handler(self, c, a):
+        while True:
+            data = c.recv(1024)
+            for connection in self.connections:
+                connection.send(data)
+            if not data:
+                print(str(a[0]) + ':' + str(a[1]), "disconnected")
+                self.connections.remove(c)
+                self.peers.remove(a[0])
+                c.close()
+                self.sendPeers()
+                break
+
+    def sendPeers(self):
+        p = ""
+        for peer in self.peers:
+            p = p + peer + ","
+        for connection in self.connections:
+            connection.send(b'\x11' + bytes(p, "utf-8"))
+
+
+class Client:
+    def sendMsg(self, sock):
+        while True:
+            sock.send(bytes(input(""), 'utf-8'))
+
+    def __init__(self, address):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((address, 10000))
+
+        iThread = threading.Thread(target=self.sendMsg, args=(sock,))
+        iThread.daemon = True
+        iThread.start()
+
+        while True:
+            data = sock.recv(1024)
+            if not data:
+                break
+            if data[0:1] == b'\x11':
+                print("got peers")
+                self.updatePeers(data[1:])
+            else:
+                print(str(data, 'utf-8'))
+
+    def updatePeers(self, peerData):
+        p2p.peers = str(peerData, "utf-8").split(",")[:-1]
+
+
+class p2p:
+    peers = ['127.0.0.1']
 
 
 class Example(QMainWindow):
     def __init__(self):
         super(Example, self).__init__()
         self.initUI()
+
+    def startKlientoSerwera(self):
+        while True:
+            print("Trying to connect...")
+            time.sleep(randint(1,5))
+            for peer in p2p.peers:
+                try:
+                    client = threading.Thread(target=Client, args=(peer))
+                except KeyboardInterrupt:
+                    sys.exit(0)
+                except:
+                    pass
+
+                try:
+                    server = threading.Thread(target=Server, args=())
+                except KeyboardInterrupt:
+                    sys.exit(0)
+                except:
+                    print("Couldnt start the server...")
+
 
 
     def initUI(self):
@@ -21,10 +118,13 @@ class Example(QMainWindow):
         cb = QComboBox()
         cb.addItems(["2", "3", "4"])
         text = QLabel("Poczekalnia")
-        button = QPushButton("Start")
-        malygrid.addWidget(text,0,0)
-        malygrid.addWidget(cb,1,0)
-        malygrid.addWidget(button, 2, 0)
+        button = QPushButton("Start klientoserwera")
+        #button.addAction(self.startKlientoSerwera())
+        button2 = QPushButton("Start gry")
+        malygrid.addWidget(button, 0, 0)
+        malygrid.addWidget(text, 0, 1)
+        malygrid.addWidget(cb, 1, 0)
+        malygrid.addWidget(button2, 2, 0)
         malyWidget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         malyWidget.setLayout(malygrid)
         grid.addWidget(malyWidget)
@@ -32,11 +132,14 @@ class Example(QMainWindow):
         Widget.setLayout(grid)
         self.setWindowIcon(QIcon('web.png'))
         self.show()
+        self.startKlientoSerwera()
 
 
 def main():
-     app = QApplication(sys.argv)
-     ex = Example()
-     sys.exit(app.exec_())
+    app = QApplication(sys.argv)
+    ex = Example()
+    sys.exit(app.exec_())
+
+
 if __name__ == '__main__':
     main()
