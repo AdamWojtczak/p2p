@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 
 
-class Example(QWidget):
+class Example(QMainWindow):
     def __init__(self):
         super(Example, self).__init__()
         self.initUI()
@@ -12,13 +12,24 @@ class Example(QWidget):
     def initUI(self):
         self.setGeometry(500, 150, 550, 450)
         self.setWindowTitle('Icon')
-        layout = QHBoxLayout()
-        self.cb = QComboBox()
-        self.cb.addItems(["2", "3", "4"])
-        self.text = QLabel("ilu graczy chcysz?")
-        layout.addWidget(self.text)
-        layout.addWidget(self.cb)
-        self.setLayout(layout)
+        Widget = QWidget()
+        self.setCentralWidget(Widget)
+        grid = QGridLayout()
+
+        malyWidget = QWidget()
+        malygrid = QGridLayout()
+        cb = QComboBox()
+        cb.addItems(["2", "3", "4"])
+        text = QLabel("Poczekalnia")
+        button = QPushButton("Start")
+        malygrid.addWidget(text,0,0)
+        malygrid.addWidget(cb,1,0)
+        malygrid.addWidget(button, 2, 0)
+        malyWidget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        malyWidget.setLayout(malygrid)
+        grid.addWidget(malyWidget)
+
+        Widget.setLayout(grid)
         self.setWindowIcon(QIcon('web.png'))
         self.show()
 
