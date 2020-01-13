@@ -12,7 +12,7 @@ class Server:
         sock.listen(1)
 
         while True:
-            print("Odpalony serwer czeka na kolejnego ")
+            print("Odpalony serwer czeka na klientow w twojej okolicy ")
             c, a = sock.accept()
             cThread = threading.Thread(target=self.handler, args=(c, a))
             cThread.daemon = True
