@@ -276,48 +276,17 @@ class TotalCommander(QMainWindow):
                     break
                 if data[0:1] == b'\x11':
                     print("got peers")
-                    if self.kolorGracza == 'R' and self.iloscGraczy == self.iloscGraczyTeraz:
-                        break
                     okno.updatePeers(data[1:])
+                    if self.kolorGracza == 'R' and self.iloscGraczy == self.iloscGraczyTeraz:
+                        self.mojaTura()
+                        break
                     self.iloscGraczyTeraz += 1
                 else:
                     # argumenty = str(data, 'utf-8').split(' ')
                     # okno.przesunPionekSiec(argumenty[1],argumenty[2],argumenty[3])
+                    self.rozczytanieKomunikatu(data)
                     print(str(data, 'utf-8'))
                     break
-
-            for i in self.gracze:
-                print('wszedlem do tej petli')
-                ile6 = 0
-                if i[2]:  # jeśli jest kolej gracza
-                    while self.rzuc == False:
-                        sleep(1)
-                    self.rzuc = False
-                    wynik = self.DieRoll()
-                    # print(2)
-                    ile6 = 0
-                    while wynik == 6:
-                        if ile6 < 3:
-                            if i[3] == 0:
-                                self.pionNaStart(i[0])
-                            else:
-                                self.wybor = True
-                                while self.ruch == False:
-                                    sleep(0.1)
-                                self.czyKoniec()
-                                if self.run == False:
-                                    break;
-                        else:
-                            break;
-                        ile6 = ile6 + 1
-                    else:
-                        if i[3] > 0:
-                            self.wybor = True
-                            while self.ruch == False:
-                                sleep(0.1)
-                            self.czyKoniec()
-                            if self.run == False:
-                                break;
             self.czyKoniec()
             # i[2]=False
             # self.gracze[i[1]+1][2]=True
