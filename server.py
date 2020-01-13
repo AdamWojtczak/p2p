@@ -25,6 +25,7 @@ class Server:
     def handler(self, c, a):
         while True:
             data = c.recv(1024)
+            print('Przyszlo: ' + str(data))
             for connection in self.connections:
                 connection.send(data)
             if not data:

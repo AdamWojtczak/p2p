@@ -1,15 +1,15 @@
 import socket
 
+from itertools import cycle
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5 import QtCore
 from time import sleep
 import threading
 
-sock = ''
 
 class TotalCommander(QMainWindow):
-    def __init__(self, address, iloscGraczy, kolor):
+    def __init__(self, iloscGraczy, kolor):
         super(TotalCommander, self).__init__()
         self.interface(iloscGraczy, kolor)
 
@@ -50,13 +50,16 @@ class TotalCommander(QMainWindow):
         self.iluGra = 2  # ilu graczy jest podłączonych ->do zmiany po dodaniu sieci
         self.setMouseTracking(True)
         self.kolorGracza = kolor  # kolor tego gracza #wstawic literke koloru w wywolaniu konstruktora na samym dole
-        self.iloscGraczy = iloscGraczy #potrzebne do startu gry zeby bylo wiadomo kiedy czerwony moze zaczac
+        self.iloscGraczy = int(iloscGraczy) #potrzebne do startu gry zeby bylo wiadomo kiedy czerwony moze zaczac
         self.iloscGraczyTeraz = 0 #licznik do porownania z iloscGraczy
 
         self.wybor = False  # gracz ma wybór pionka do ruchu
         self.ruch = False  # gracz ruszył pionkiem
         self.rzuc = False  # gracz chce rzucić kostką
         self.wynikRzutu = -1  # wynik ostatniego rzutu kostką
+
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect(('127.0.0.1', 10000))
 
         self.inicjacjaGraczy()
         zacznijGre = QAction('&Start', self)
@@ -82,7 +85,8 @@ class TotalCommander(QMainWindow):
     def guzik(self):  # event przycisków planszy -> gracz wybiera pionek do przesunięcia
         if self.wybor == True and self.biale.index(self.sender()) in self.tab[4]:
             # print("x "+"{}".format(self.sender().x())+ " y "+"{}".format(self.sender().y()))
-            self.przesunPionek(self.sender(), self.wynikRzutu)
+            print(1)
+            self.przesunPionekSiec(self.kolorGracza, self.sender(), self.wynikRzutu)
             self.ruch = True
             self.wybor = False
 
@@ -162,26 +166,36 @@ class TotalCommander(QMainWindow):
         print('Mouse coords: ( %d : %d )' % (event.x(), event.y()))
 
     def pionNaStart(self, color):  # ustawienie piona z pola startowego na planszy dla gracza z danym parametrem "color"
+        if color==self.kolorGracza:
+            self.komunikat += ' ' + str(-1)+' '
         if color == 'R':
             self.changeColor(self.startR[self.red[3]], 'L')
             self.changeColor(self.biale[0], color)
             self.red[4][self.red[3]] = 0
             self.red[3] = self.red[3] + 1
+            if color == self.kolorGracza:
+                self.komunikat+=str(0)
         elif color == 'Y':
             self.changeColor(self.startY[self.yellow[3]], 'L')
             self.yellow[3] = self.yellow[3] + 1
             self.changeColor(self.biale[20], color)
             self.yellow[4][0] = 20
+            if color == self.kolorGracza:
+                self.komunikat += str(20)
         elif color == 'G':
             self.changeColor(self.startG[self.green[3]], 'L')
             self.green[3] = self.green[3] + 1
             self.changeColor(self.biale[10], color)
             self.green[4][0] = 10
+            if color == self.kolorGracza:
+                self.komunikat += str(10)
         else:
             self.changeColor(self.startB[self.blue[3]], 'L')
             self.blue[3] = self.blue[3] + 1
             self.changeColor(self.biale[30], color)
             self.blue[4][0] = 30
+            if color == self.kolorGracza:
+                self.komunikat += str(30)
 
     def rozczytanieKomunikatu(self, komunikat):  # rozczytanie ruchu innego gracza
         # pola komunikatu
@@ -189,16 +203,22 @@ class TotalCommander(QMainWindow):
         # pole z którego przesunięto pionek -> -1 to z pozycji startowej
         # pole na które przesunięto pionek -> -1 nie wykonano przesunięcia? 40,41,42,43 pola końcowe
         # numer gracza który wykonuje następny ruch ->jeśli F to koniec
-        gracz, poleZ, poleDo, ktoNastepny = komunikat.split()
+        gracz, poleZ, poleDo, ktoNastepny = str(komunikat, 'utf-8').split()
+        print(gracz)
+        print(poleZ)
+        print(poleDo)
+        print(ktoNastepny)
+        if gracz!=self.kolorGracza:
 
-        if poleDo != -1:
-            if poleZ == -1:
-                self.pionNaStart(gracz)
-            else:
-                self.przesunPionek(gracz, self.biale[poleZ], poleDo)
-
-        if self.tab[1] == ktoNastepny:
-            mojaTura()
+            if int(poleDo) != -1:
+                if int(poleZ) == -1:
+                    self.pionNaStart(gracz)
+                else:
+                    self.przesunPionekSiec(gracz, self.biale[int(poleZ)], int(poleDo))
+        print(ktoNastepny)
+        if self.kolorGracza == ktoNastepny:
+            print('yas')
+            self.mojaTura()
         self.czyKoniec()
 
     def przesunPionekSiec(self, kto, pionek, ile):  # wersja sieciowa
@@ -210,12 +230,15 @@ class TotalCommander(QMainWindow):
             tab = self.yellow
         elif kto == 'G':
             tab = self.green
-
+        print(tab[0])
         if pionek in self.biale:
             x = self.biale.index(pionek)
+            print(x)
+            print(tab[4])
             if x in tab[4]:
-                self.komunikat += ' ' + str(x)  #
-                if ile < 40:
+                if kto == self.kolorGracza:
+                    self.komunikat += ' ' + str(x)  #
+                if ile > 40:#koniec trasy innego gracza
                     ile -= 40
                     tab[4][tab[4].index(x)] = -2
                     tab[8][ile] = 1
@@ -229,8 +252,8 @@ class TotalCommander(QMainWindow):
                         self.changeColor(self.koniecY[ile], 'Y')
                     elif kto == 'G':
                         self.changeColor(self.koniecG[ile], 'G')
-                    self.komunikat += ' ' + str(40 + ile)  #
-                else:
+                    self.komunikat += ' ' + str(ile)  #
+                else:#koniec trasy tego gracza
                     if x + ile > 39 - tab[7]:
                         A = x + ile - 40 - tab[7]
                         if A < 4:
@@ -247,13 +270,12 @@ class TotalCommander(QMainWindow):
                                     self.changeColor(self.koniecY[A], 'Y')
                                 elif kto == 'G':
                                     self.changeColor(self.koniecG[A], 'G')
-                                self.komunikat += ' ' + str(40 + A)  #
-
+                                if kto == self.kolorGracza:
+                                    self.komunikat += ' ' + str(40 + A)  #
                     else:
                         for gracz in self.gracze:
-                            if not (kto in gracz):
+                            if not (kto in gracz):#bicie
                                 if x in gracz[4]:
-                                    print(5)
                                     temp = gracz[4]
                                     y = temp.index(x)
                                     temp[y] = -1
@@ -263,24 +285,28 @@ class TotalCommander(QMainWindow):
                         self.changeColor(self.biale[x], 'W')
                         self.changeColor(self.biale[x + ile], tab[0])
                         z = (tab[4]).index(x)
-                        tab[4][z] = x + ile
-                        self.komunikat += ' ' + str(x + ile)
+
+                        tab[4][tab[4].index(x)]=(x+ile)
+                      #  tab[4][z] = x + ile
+                        if kto == self.kolorGracza:
+                            self.komunikat += ' ' + str(ile)
 
     def start(self):  # główna funkcja gry -> po dodaniu sieci tura gracza? -> do usunięcia?
         self.run = True
         while (self.run):  # jeśli nikt nie wygral działa
             ####################################tutaj petla czytajaca komunikaty i odpalajaca rozczytanieKomunikatu
             while True:
-                data = sock.recv(1024)
+                data = self.sock.recv(1024)
+                print('aAAAAAAAAAAAAAAAAAAAAAAa')
                 if not data:
                     break
                 if data[0:1] == b'\x11':
                     print("got peers")
                     okno.updatePeers(data[1:])
-                    if self.kolorGracza == 'R' and self.iloscGraczy == self.iloscGraczyTeraz:
+                    self.iloscGraczyTeraz += 1
+                    if self.kolorGracza == 'R' and self.iloscGraczy <= self.iloscGraczyTeraz:
                         self.mojaTura()
                         break
-                    self.iloscGraczyTeraz += 1
                 else:
                     # argumenty = str(data, 'utf-8').split(' ')
                     # okno.przesunPionekSiec(argumenty[1],argumenty[2],argumenty[3])
@@ -345,9 +371,9 @@ class TotalCommander(QMainWindow):
         # tabela z przyciskami startowymi
         # nr pola z którego gracz zaczyna
         # oznaczenie pól końcowych ->0 wolne, 1 zajęte
-        self.blue = ['B', 2, False, 0, [-1, -1, -1, -1], 0, self.startB, 30, [0, 0, 0, 0]]
-        self.green = ['G', 3, False, 0, [-1, -1, -1, -1], 0, self.startG, 10, [0, 0, 0, 0]]
-        self.yellow = ['Y', 4, False, 0, [-1, -1, -1, -1], 0, self.startY, 20, [0, 0, 0, 0]]
+        self.blue = ['B', 4, False, 0, [-1, -1, -1, -1], 0, self.startB, 30, [0, 0, 0, 0]]
+        self.green = ['G', 2, False, 0, [-1, -1, -1, -1], 0, self.startG, 10, [0, 0, 0, 0]]
+        self.yellow = ['Y', 3, False, 0, [-1, -1, -1, -1], 0, self.startY, 20, [0, 0, 0, 0]]
         if self.iluGra == 4:
             self.gracze = [self.red, self.blue, self.green, self.yellow]
         elif self.iluGra == 3:
@@ -368,7 +394,7 @@ class TotalCommander(QMainWindow):
 
     def DieRoll(self):  # rzut kostką oraz zmiana ikony przycisku
         import random
-        roll = random.randint(1, 6)
+        roll = random.randint(4, 6)
         self.wynikRzutu = roll
         self.kostka.setIcon(QIcon('./d' + str(roll) + '.png'))
         return roll
@@ -377,6 +403,7 @@ class TotalCommander(QMainWindow):
         # warunek na start
         start = 1
         end = 2
+        print('Wszedlem do mojej tury')
         if self.run == True:
             ile6 = 0
             while self.rzuc == False:
@@ -385,15 +412,48 @@ class TotalCommander(QMainWindow):
             self.komunikat = self.tab[0]
             wynik = self.DieRoll()
 
+            if wynik==6:
+                if self.tab[3] == 0:
+                    self.pionNaStart(self.tab[0])
+                    start = -1
+                    end = self.tab[7]
+                    #self.komunikat += ' ' + str(-1)
+                    #self.komunikat += ' ' + str(self.tab[7])
+                else:
+                    self.wybor = True
+                    while self.ruch == False:
+                        sleep(0.1)
+                    self.czyKoniec()
+                self.komunikat += ' ' + self.kolorGracza
+
+            else:
+                if self.tab[3] > 0:
+                    self.wybor = True
+                    while self.ruch == False:
+                        sleep(0.1)
+                    self.czyKoniec()
+                    self.komunikat += ' ' + str(
+                        self.gracze[self.iloscGraczy - self.tab[1]][0])
+                else:
+                    pool = cycle(self.gracze)
+                    self.komunikat += ' ' + str(-1) + ' ' + str(-1) + ' ' + str(self.gracze[self.iloscGraczy - self.tab[1]][0])
+
+            self.czyKoniec()
+            self.sendMsg(self.sock, self.komunikat)
+
+
+
+            """
             if wynik == 6:
-                while wynik == 6:
+                while ile6<3:
 
                     if ile6 < 3:
                         if self.tab[3] == 0:
-                            self.pionNaStart(i[0])
+                            self.pionNaStart(self.tab[0])
                             start = -1
                             end = self.tab[7]
-                            self.komunikat += ()
+                            self.komunikat +=' '+ str(-1)
+                            self.komunikat+=' '+str(self.tab[7])
                         else:
                             self.wybor = True
                             while self.ruch == False:
@@ -405,14 +465,15 @@ class TotalCommander(QMainWindow):
                         sleep(0.1)
                     self.rzuc = False
                     wynik = self.DieRoll()
-                    if wynik == 6 and (ile6 + 1) == 3:
-                        self.komunikat += ' ' + self.tab[1] + 1
+                    if wynik == 6 and (ile6 + 1) <= 3:
+                        self.komunikat += ' ' + str(self.gracze[self.iloscGraczy-self.tab[1]][0])##
+                    elif wynik==6:
+                        self.komunikat += ' ' + self.kolorGracza##
                     else:
-                        self.komunikat += ' ' + self.tab[1]
-                        break
+                        self.komunikat += ' ' + self.kolorGracza  ##
+                        ile6=2
                     # wyślij
-                    self.sendMsg(sock,self.komunikat)
-                    ile6 = ile6 + 1
+                    self.sendMsg(self.sock,self.komunikat)
 
 
 
@@ -423,9 +484,13 @@ class TotalCommander(QMainWindow):
                         sleep(0.1)
                     self.czyKoniec()
                     self.komunikat += ' ' + str(self.tab[1] + 1)
+                else:
+                    self.komunikat += ' ' + str(-1) + ' ' + str(-1) + ' ' + str(self.gracze[self.iloscGraczy-self.tab[1]][0])
+
             self.czyKoniec()
-            self.sendMsg(sock, self.komunikat)
+            self.sendMsg(self.sock, self.komunikat)
             # wyślij komunikat
+            """
 
     def drawBoard(self):  # rysowanie planszy i dodanie pól do odpowiednich tablic
         tabI = [4, 4, 4, 4, 4, 3, 2, 1, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 4, 5, 6, 6, 6, 6, 6, 7, 8, 9, 10, 10, 10, 9, 8, 7,
@@ -550,9 +615,8 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
     app.aboutToQuit.connect(app.deleteLater)
-    okno = TotalCommander("127.0.0.1", sys.argv[1], sys.argv[2]) #tutaj wsatwic literke koloru
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(("127.0.0.1", 10000))
+    okno = TotalCommander(sys.argv[1], sys.argv[2]) #tutaj wsatwic literke koloru
+
 
     # iThread = threading.Thread(target=self.sendMsg, args=(sock,))
     # iThread.daemon = True
