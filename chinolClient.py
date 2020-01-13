@@ -9,9 +9,9 @@ import threading
 sock = ''
 
 class TotalCommander(QMainWindow):
-    def __init__(self, address, kolor):
+    def __init__(self, address, iloscGraczy, kolor):
         super(TotalCommander, self).__init__()
-        self.interface(kolor)
+        self.interface(iloscGraczy, kolor)
 
     def sendMsg(self, sock, msg):
         sock.send(bytes(msg, 'utf-8'))
@@ -21,7 +21,7 @@ class TotalCommander(QMainWindow):
         peers = str(peerData, "utf-8").split(",")[:-1]
 
 
-    def interface(self, kolor):
+    def interface(self, iloscGraczy, kolor):
         self.setWindowTitle('Total Commander in python')
         self.run = False
         Widget = QWidget()
@@ -50,6 +50,8 @@ class TotalCommander(QMainWindow):
         self.iluGra = 2  # ilu graczy jest podłączonych ->do zmiany po dodaniu sieci
         self.setMouseTracking(True)
         self.kolorGracza = kolor  # kolor tego gracza #wstawic literke koloru w wywolaniu konstruktora na samym dole
+        self.iloscGraczy = iloscGraczy #potrzebne do startu gry zeby bylo wiadomo kiedy czerwony moze zaczac
+        self.iloscGraczyTeraz = 0 #licznik do porownania z iloscGraczy
 
         self.wybor = False  # gracz ma wybór pionka do ruchu
         self.ruch = False  # gracz ruszył pionkiem
@@ -274,13 +276,18 @@ class TotalCommander(QMainWindow):
                     break
                 if data[0:1] == b'\x11':
                     print("got peers")
+                    if self.kolorGracza == 'R' and self.iloscGraczy == self.iloscGraczyTeraz:
+                        break
                     okno.updatePeers(data[1:])
+                    self.iloscGraczyTeraz += 1
                 else:
                     # argumenty = str(data, 'utf-8').split(' ')
                     # okno.przesunPionekSiec(argumenty[1],argumenty[2],argumenty[3])
                     print(str(data, 'utf-8'))
+                    break
 
             for i in self.gracze:
+                print('wszedlem do tej petli')
                 ile6 = 0
                 if i[2]:  # jeśli jest kolej gracza
                     while self.rzuc == False:
@@ -574,7 +581,7 @@ if __name__ == '__main__':
 
     app = QApplication(sys.argv)
     app.aboutToQuit.connect(app.deleteLater)
-    okno = TotalCommander("127.0.0.1", 'R') #tutaj wsatwic literke koloru
+    okno = TotalCommander("127.0.0.1", sys.argv[1], sys.argv[2]) #tutaj wsatwic literke koloru
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(("127.0.0.1", 10000))
 
